@@ -28,24 +28,25 @@ public class CentralServer {
         }
     }
 
-    public void receiveConnection(Socket socket, String peer) throws IOException {
+    public void receiveConnection(Socket socket, String peerRequest) throws IOException {
         OutputStream output = socket.getOutputStream();
         PrintWriter writer = new PrintWriter(output, true);
-        if (peer.charAt(0) == 'r') {
-            String peerHost = peer.substring(1);
+        String peerHost = CentralServer.getIpAddress(socket);
+        if (peerRequest.equals("remove")) {
             System.out.println("Received a request to removal from " + peerHost);
             this.removePeerFromMyList(peerHost);
             System.out.println("Peer " + peerHost + " removed from Central Server");
-        } else {
+        } else if (peerRequest.equals("add")) {
             System.out.println("Received a request to add a new peer");
-            writer.println(this.registerPeer(peer));
+            writer.println(this.registerPeer(peerHost));
         }
     }
 
     private String registerPeer(String peer) {
         if (peerList.isEmpty()) {
             peerList.add(peer);
-            return "First Registration. Peer Successfully Registered " + peer;
+            System.out.println("First Registration. Peer Successfully Registered " + peer);
+            return "first";
         } else {
             Random rand = new Random();
             int randomPeer = rand.nextInt(peerList.size() - 1);
@@ -73,6 +74,10 @@ public class CentralServer {
             sb.append(peer).append("\n");
         }
         System.out.println(sb);
+    }
+    private static String getIpAddress(Socket socket) {
+        String socketName = socket.getRemoteSocketAddress().toString();
+        return socketName.substring(1, socketName.indexOf(":"));
     }
 
 

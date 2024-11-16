@@ -54,36 +54,40 @@ public class Peer {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
         OutputStream output = socket.getOutputStream();
         PrintWriter writer = new PrintWriter(output, true);
-        writer.println(this.myIp);
+        writer.println("add");
         String receivedMessage = reader.readLine();
         System.out.println("Received Message from Server " + receivedMessage);
         socket.close();
-        if (isValidIP(receivedMessage)) {
+        if (!receivedMessage.equals("first")) {
             connectToPeer(receivedMessage, 0);
         } else {
-            System.out.println("Invalid IP address");
+            System.out.println("Invalid message received");
         }
     }
 
-     public void receiveConnection(Socket socket, String peer) throws IOException {
+     public void receiveConnection(Socket socket, String message) throws IOException {
         OutputStream output = socket.getOutputStream();
         PrintWriter writer = new PrintWriter(output, true);
-        if (peer.charAt(0) == 'r') {
-            String peerHost = peer.substring(1);
-            System.out.println("Received a request to removal from " + peerHost);
-            this.removePeerFromMyNeighbors(peerHost);
-        } else if (this.counter.get() < 3) {
-            System.out.println("Received a request to connect from " + peer + " and accepting it");
-            writer.println("ok");
-            this.neighbors.add(peer);
-            this.counter.set(this.counter.get() + 1);
+        String ipReceived = Peer.getIpAddress(socket);
+        if (message.equals("remove")) {
+            System.out.println("Received a request to removal from " + ipReceived);
+            this.removePeerFromMyNeighbors(ipReceived);
+        } else if (message.equals("add")) {
+            if (this.counter.get() < 3) {
+                System.out.println("Received a request to connect from " + ipReceived + " and accepting it");
+                writer.println("ok");
+                this.neighbors.add(ipReceived);
+                this.counter.set(this.counter.get() + 1);
+            } else {
+                System.out.println("Received a request but my neighbors are full to connect peer " + ipReceived);
+                Random rand = new Random();
+                int randomPeer = rand.nextInt(neighbors.size() - 1);
+                String peerToReturn = neighbors.get(randomPeer);
+                System.out.println("Returning one of my random neighbors " + peerToReturn +" to " + ipReceived);
+                writer.println(peerToReturn);
+            }
         } else {
-            System.out.println("Received a request but my neighbors are full to connect from " + peer);
-            Random rand = new Random();
-            int randomPeer = rand.nextInt(neighbors.size() - 1);
-            String peerToReturn = neighbors.get(randomPeer);
-            System.out.println("Returning one of my random neighbors " + peerToReturn +" to " + peer);
-            writer.println(peerToReturn);
+            System.out.println("Invalid message received");
         }
     }
 
@@ -98,16 +102,14 @@ public class Peer {
                 OutputStream output = socket.getOutputStream();
                 PrintWriter writer = new PrintWriter(output, true);
                 System.out.println("Connecting to: " + peer);
-                writer.println(peer);
+                writer.println("add");
                 String receivedMessage = reader.readLine();
                 if (receivedMessage.equals("ok")) {
                     neighbors.add(peer);
                     counter.set(counter.get() + 1);
                     System.out.println("Connected to Peer " + peer);
-                } else if (isValidIP(receivedMessage)) {
-                    newPeer = receivedMessage;
                 } else {
-                    System.out.println("Invalid IP address");
+                    newPeer = receivedMessage;
                 }
             } catch (UnknownHostException e) {
                 System.out.println("Unknown host: " + peer + " error: " + e.getMessage());
@@ -118,18 +120,6 @@ public class Peer {
                 connectToPeer(newPeer, ++tries);
             }
         }
-    }
-
-    public static boolean isValidIP(String ip) {
-        // Regular expression for IPv4 addresses
-        final String IPV4_REGEX =
-                "^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
-                "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
-                "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
-                "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
-
-        Pattern pattern = Pattern.compile(IPV4_REGEX);
-        return pattern.matcher(ip).matches();
     }
 
     public void printNeighbors() {
@@ -164,12 +154,17 @@ public class Peer {
         try (Socket socket = new Socket(destination, PORT)) {
             OutputStream output = socket.getOutputStream();
             PrintWriter writer = new PrintWriter(output, true);
-            writer.println('r' + this.myIp);
+            writer.println("remove");
             System.out.println("Sending request to remove myself to " + destination);
         } catch (UnknownHostException e) {
             System.out.println("Unknown host: " + destination + " error: " + e.getMessage());
         } catch (IOException e) {
             System.out.println("I/O Exception: " + e.getMessage());
         }
+    }
+
+    private static String getIpAddress(Socket socket) {
+        String socketName = socket.getRemoteSocketAddress().toString();
+        return socketName.substring(1, socketName.indexOf(":"));
     }
 }
